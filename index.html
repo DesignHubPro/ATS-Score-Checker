@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ATS Score Checker: Check how well your resume matches the job description. Upload your resume and paste the job description to get the ATS score.">
+    <meta name="keywords" content="ATS Score Checker, Resume ATS, Job Description, Resume Matching, Resume Optimizer, Resume Score">
+    <meta name="author" content="Vikram Singh">
+    <title>ATS Score Checker - Resume Matching</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f7fc;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 700px;
+            background-color: #ffffff;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+        }
+        input[type="file"], textarea, button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+        textarea {
+            height: 150px;
+            resize: none;
+        }
+        .btn {
+            background-color: #3498db;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        .btn:disabled {
+            background-color: #bdc3c7;
+        }
+        .loader {
+            display: none;
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .result-popup {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            background-color: #ffffff;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            text-align: center;
+            width: 300px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .result-popup h2 {
+            margin-bottom: 15px;
+        }
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            font-size: 20px;
+            color: #e74c3c;
+        }
+        footer {
+            text-align: right;
+            margin-top: 40px;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        footer a {
+            color: #3498db;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ATS Score Checker</h1>
+        <div class="card">
+            <p><strong>Step 1:</strong> Upload your Resume (PDF format)</p>
+            <input type="file" id="resumeFile" accept=".pdf">
+        </div>
+        <div class="card">
+            <p><strong>Step 2:</strong> Paste the Job Description below:</p>
+            <textarea id="jobDescription" placeholder="Paste job description here..."></textarea>
+        </div>
+        <button id="analyzeButton" class="btn">Check ATS Score</button>
+        <div class="loader" id="loader"></div>
+    </div>
+
+    <div class="result-popup" id="resultPopup">
+        <span class="close-btn" id="closePopup">&times;</span>
+        <h2>ATS Score</h2>
+        <p id="atsScore">Calculating...</p>
+        
+        
+    </div>
+
+    
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>
+        document.getElementById('analyzeButton').addEventListener('click', function () {
+            const fileInput = document.getElementById('resumeFile');
+            const jobDescription = document.getElementById('jobDescription').value.trim();
+
+            if (!fileInput.files[0]) {
+                alert("Please upload a resume file.");
+                return;
+            }
+            if (!jobDescription) {
+                alert("Please paste the job description.");
+                return;
+            }
+
+            const loader = document.getElementById('loader');
+            const resultPopup = document.getElementById('resultPopup');
+            const atsScoreText = document.getElementById('atsScore');
+            loader.style.display = 'block';
+            document.getElementById('analyzeButton').disabled = true;
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function () {
+                const typedarray = new Uint8Array(reader.result);
+
+                pdfjsLib.getDocument(typedarray).promise.then(function (pdf) {
+                    let text = "";
+
+                    const getPageText = (pageNum) => {
+                        return pdf.getPage(pageNum).then(function (page) {
+                            return page.getTextContent().then(function (textContent) {
+                                return textContent.items.map(item => item.str).join(" ");
+                            });
+                        });
+                    };
+
+                    const textPromises = [];
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        textPromises.push(getPageText(i));
+                    }
+
+                    Promise.all(textPromises).then(function (texts) {
+                        text = texts.join(" ").toLowerCase();
+                        calculateATSScore(text, jobDescription.toLowerCase());
+                    });
+                });
+            };
+
+            reader.readAsArrayBuffer(file);
+
+            function calculateATSScore(resumeText, jobText) {
+                const jobWords = jobText.split(/\s+/);
+                let matchCount = 0;
+
+                jobWords.forEach(word => {
+                    if (resumeText.includes(word)) {
+                        matchCount++;
+                    }
+                });
+
+                const score = ((matchCount / jobWords.length) * 100).toFixed(2);
+                atsScoreText.innerText = `ATS Score: ${score}%`;
+                loader.style.display = 'none';
+                resultPopup.style.display = 'block';
+
+                setTimeout(function () {
+                    resultPopup.style.opacity = '1';
+                }, 500);
+            }
+        });
+
+        // Close result popup
+        document.getElementById('closePopup').addEventListener('click', function () {
+            document.getElementById('resultPopup').style.display = 'none';
+            document.getElementById('analyzeButton').disabled = false; // Enable the button after closing the popup
+        });
+    </script>
+    
+    
+</body>
+</html>
